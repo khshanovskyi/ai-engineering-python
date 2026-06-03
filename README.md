@@ -28,7 +28,6 @@ end, when you do use frameworks, you'll understand exactly what's happening unde
 ## Branches Structure
 
 - `main` - tasks with descriptions
-- `main-detailed` - tasks with super detailed descriptions
 - `completed` - completed tasks, useful when stuck
 
 ---
