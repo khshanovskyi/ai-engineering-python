@@ -1,0 +1,47 @@
+# Local Llama via Ollama — one-command replacement for the manual `docker run` +
+# `docker exec ... ollama pull` steps in README.md.
+#
+# Usage (from this directory):
+#   docker compose up -d          # start Ollama on host port 11434 and pull the model
+#   docker compose logs -f puller  # watch the model download
+#   docker compose down           # stop & remove containers (keeps the model volume)
+#   docker compose down -v        # also delete the downloaded models
+#
+# Override the model without editing this file:
+#   LLAMA_MODEL=llama3.2:3b docker compose up -d
+#
+# Ollama exposes BOTH compatible surfaces our clients speak, on port 11434:
+#   - OpenAI-compatible:    POST http://localhost:11434/v1/chat/completions
+#   - Anthropic-compatible: POST http://localhost:11434/v1/messages   (Ollama >= 0.14.0)
+
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      # `ollama` ships in the image; use it instead of curl/wget (not present).
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot helper: waits for the server, pulls the model, then exits.
+  puller:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      # Talk to the server container, not localhost inside this one.
+      OLLAMA_HOST: http://ollama:11434
+      LLAMA_MODEL: ${LLAMA_MODEL:-llama3.2:1b}
+    entrypoint: ["sh", "-c", "ollama pull \"$$LLAMA_MODEL\""]
+    restart: "no"
+
+volumes:
+  ollama:
