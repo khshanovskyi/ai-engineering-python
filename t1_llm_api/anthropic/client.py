@@ -9,28 +9,42 @@ class AnthropicAIClient(AIClient):
 
     def __init__(self, base_url: str, model_name: str, api_key: str, system_prompt: str):
         super().__init__(base_url, model_name, api_key, system_prompt)
-        #TODO:
-        # Add Anthropic and AsyncAnthropic clients https://github.com/anthropics/anthropic-sdk-python?tab=readme-ov-file#usage
-        # (In readme you can find samples with both of these clients)
-        # Useful links with request/response samples:
-        #   - https://platform.claude.com/docs/en/api/overview
-        #   - https://platform.claude.com/docs/en/api/messages/create
-        # - create the Anthropic SDK clients with api_key + base_url, storing them on
-        #   self._client (Anthropic(...)) and self._async_client (AsyncAnthropic(...))
+        self._client = Anthropic(api_key=api_key, base_url=base_url)
+        self._async_client = AsyncAnthropic(api_key=api_key, base_url=base_url)
 
     def response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - call self._client.messages.create with system=self._system_prompt, max_tokens (required
-        #   by Anthropic; default 1024), model=self._model_name, messages=[msg.to_dict() ...]
-        # - response.content is a list of blocks; concatenate the .text of blocks where type == 'text'
-        # - print the content, return Message(Role.ASSISTANT, content)
-        raise NotImplementedError()
+        response = self._client.messages.create(
+            system=self._system_prompt,
+            max_tokens=1024,
+            model=self._model_name,
+            messages=[msg.to_dict() for msg in messages]
+        )
+
+        content = ""
+        for block in response.content:
+            if block.type == 'text':
+                content += block.text
+
+        print(content)
+        return Message(role=Role.ASSISTANT, content=content)
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - call self._async_client.messages.create with system, max_tokens, model, stream=True,
-        #   messages=[msg.to_dict() ...] and await it
-        # - async-iterate the stream; when chunk.type == "content_block_delta" and the chunk has
-        #   delta.text, print it (end='') and accumulate it (guard with hasattr)
-        # - print() a newline, return Message(Role.ASSISTANT, joined content)
-        raise NotImplementedError()
+        content = []
+
+        stream = await self._async_client.messages.create(
+            system=self._system_prompt,
+            max_tokens=1024,
+            model=self._model_name,
+            stream=True,
+            messages=[msg.to_dict() for msg in messages]
+        )
+
+        async for chunk in stream:
+            if chunk.type == "content_block_delta":
+                if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
+                    delta_content = chunk.delta.text
+                    content.append(delta_content)
+                    print(delta_content, end='')
+
+        print()
+        return Message(role=Role.ASSISTANT, content="".join(content))

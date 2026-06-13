@@ -10,31 +10,72 @@ from t1_llm_api.gemini.base import BaseGeminiClient
 class CustomGeminiGenerateContentAIClient(BaseGeminiClient):
 
     def _to_gemini_contents(self, messages: list[Message]) -> list[dict]:
-        #TODO:
-        # https://ai.google.dev/api/generate-content
-        # - map each Message to a dict with role=self._to_gemini_role(msg.role) (assistant -> "model")
-        #   and parts=[{"text": msg.content}]
-        # - return the list of contents
-        raise NotImplementedError()
+        contents = []
+        for msg in messages:
+            contents.append({
+                "role": self._to_gemini_role(msg.role),
+                "parts": [{"text": msg.content}]
+            })
+        return contents
 
     def response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - headers = self._auth_headers() (sets x-goog-api-key)
-        # - build the request body: system_instruction as {"parts": [{"text": ...}]},
-        #   contents=self._to_gemini_contents(messages), generationConfig={"maxOutputTokens": ...} (camelCase)
-        # - POST with requests to "{self._base_url}/v1beta/models/{self._model_name}:generateContent"
-        # - on 200: join the text of candidates[0].content.parts, print, return Message(Role.ASSISTANT, content);
-        #   raise ValueError if there are no candidates
-        # - on non-200: raise with the status code and response text
-        raise NotImplementedError()
+        url = f"{self._base_url}/v1beta/models/{self._model_name}:generateContent"
+        headers = self._auth_headers()
+
+        request_data = {
+            "system_instruction": {"parts": [{"text": self._system_prompt}]},
+            "contents": self._to_gemini_contents(messages),
+            "generationConfig": {
+                "maxOutputTokens": kwargs.get("max_tokens", 1024)
+            }
+        }
+
+        response = requests.post(url=url, headers=headers, json=request_data)
+
+        if response.status_code == 200:
+            data = response.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                content = "".join(part.get("text", "") for part in parts)
+                print(content)
+                return Message(Role.ASSISTANT, content)
+            raise ValueError("No candidates present in the response")
+        else:
+            raise Exception(f"HTTP {response.status_code}: {response.text}")
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - same headers + request body as response()
-        # - POST with aiohttp to "{self._base_url}/v1beta/models/{self._model_name}:streamGenerateContent?alt=sse"
-        #   (?alt=sse is required for streaming)
-        # - on 200: async-iterate response.content lines; for lines starting with "data: ", strip the
-        #   prefix and json.loads it, then walk candidates[0].content.parts and print + accumulate each part's text
-        # - on non-200: read and print the error text
-        # - print() a newline, return Message(Role.ASSISTANT, joined content)
-        raise NotImplementedError()
+        url = f"{self._base_url}/v1beta/models/{self._model_name}:streamGenerateContent?alt=sse"
+        headers = self._auth_headers()
+
+        request_data = {
+            "system_instruction": {"parts": [{"text": self._system_prompt}]},
+            "contents": self._to_gemini_contents(messages),
+            "generationConfig": {
+                "maxOutputTokens": kwargs.get("max_tokens", 1024)
+            }
+        }
+        contents = []
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url=url, headers=headers, json=request_data) as response:
+                if response.status == 200:
+                    async for line in response.content:
+                        line_str = line.decode('utf-8').strip()
+                        if line_str.startswith("data: "):
+                            data = line_str[6:].strip()
+                            parsed_data = json.loads(data)
+                            candidates = parsed_data.get("candidates", [])
+                            if candidates:
+                                parts = candidates[0].get("content", {}).get("parts", [])
+                                for part in parts:
+                                    text_content = part.get("text", "")
+                                    if text_content:
+                                        print(text_content, end='')
+                                        contents.append(text_content)
+                else:
+                    error_text = await response.text()
+                    print(f"{response.status} {error_text}")
+
+                print()
+                return Message(role=Role.ASSISTANT, content=''.join(contents))

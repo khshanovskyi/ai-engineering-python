@@ -27,9 +27,11 @@ class BaseOpenAIClient(AIClient, ABC):
         Raises:
             ValueError: If api_key is None, empty, or contains only whitespace.
         """
-        #TODO:
-        # - validate api_key: raise ValueError if it is None, empty, or whitespace-only
-        # - call super().__init__(...) forwarding base_url, model_name, system_prompt, and the
-        #   api_key formatted as a Bearer header value ("Bearer {api_key}") so the custom client
-        #   can drop self._api_key straight into the Authorization header
-        raise NotImplementedError()
+        if not api_key or api_key.strip() == "":
+            raise ValueError("API key cannot be null or empty")
+        super().__init__(
+            base_url=base_url,
+            model_name=model_name,
+            system_prompt=system_prompt,
+            api_key=f"Bearer {api_key}"
+        )

@@ -10,30 +10,47 @@ class GeminiInteractionsAIClient(BaseGeminiClient):
 
     def __init__(self, base_url: str, model_name: str, api_key: str, system_prompt: str):
         super().__init__(base_url, model_name, api_key, system_prompt)
-        #TODO:
-        # https://ai.google.dev/api/interactions-api
-        # - create the google-genai SDK client on self._client, pointing it at base_url via
-        #   types.HttpOptions: genai.Client(api_key=api_key, http_options=types.HttpOptions(base_url=base_url))
+        self._client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(base_url=base_url),
+        )
 
     def _to_input(self, messages: list[Message]) -> list[dict]:
-        #TODO:
-        # - map each Message to an Interactions "step": type "model_output" for Role.ASSISTANT,
-        #   else "user_input"; content=[{"type": "text", "text": msg.content}]
-        # - return the list of steps
-        raise NotImplementedError()
+        steps = []
+        for msg in messages:
+            step_type = "model_output" if msg.role == Role.ASSISTANT else "user_input"
+            steps.append({
+                "type": step_type,
+                "content": [{"type": "text", "text": msg.content}],
+            })
+        return steps
 
     def response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - call self._client.interactions.create with model, input=self._to_input(messages),
-        #   system_instruction=self._system_prompt, generation_config={"max_output_tokens": ...}
-        # - read interaction.output_text, print it
-        # - return Message(Role.ASSISTANT, content)
-        raise NotImplementedError()
+        interaction = self._client.interactions.create(
+            model=self._model_name,
+            input=self._to_input(messages),
+            system_instruction=self._system_prompt,
+            generation_config={"max_output_tokens": kwargs.get("max_tokens", 1024)},
+        )
+
+        content = interaction.output_text
+        print(content)
+        return Message(role=Role.ASSISTANT, content=content)
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - call self._client.aio.interactions.create(..., stream=True) and await it
-        # - async-iterate events; when event.event_type == "step.delta" and event.delta.type == "text",
-        #   print event.delta.text (end='') and accumulate it
-        # - print() a newline, return Message(Role.ASSISTANT, joined content)
-        raise NotImplementedError()
+        content = []
+
+        stream = await self._client.aio.interactions.create(
+            model=self._model_name,
+            input=self._to_input(messages),
+            system_instruction=self._system_prompt,
+            generation_config={"max_output_tokens": kwargs.get("max_tokens", 1024)},
+            stream=True,
+        )
+        async for event in stream:
+            if event.event_type == "step.delta" and event.delta.type == "text":
+                content.append(event.delta.text)
+                print(event.delta.text, end='')
+
+        print()
+        return Message(role=Role.ASSISTANT, content="".join(content))

@@ -21,15 +21,22 @@ async def start(stream: bool, client: AIClient) -> None:
                       If False, use synchronous responses (complete response at once).
         client (AIClient): The AI client instance to use for generating responses.
     """
-    #TODO:
-    # - create a Conversation() to hold the running message history
-    # - print a hint telling the user to type 'exit' to quit
-    # - loop:
-    #   - read user input (input(...)) and strip it
-    #   - if it equals 'exit' (case-insensitive), print a goodbye and break
-    #   - wrap it in Message(Role.USER, ...) and add it to the conversation
-    #   - print the "🤖: " prefix without a trailing newline (end="")
-    #   - if `stream`: await client.stream_response(conversation.get_messages())
-    #     else: client.response(conversation.get_messages())
-    #   - add the returned ai_message back to the conversation
-    raise NotImplementedError()
+    conversation = Conversation()
+
+    print("Type your question or 'exit' to quit.")
+    while True:
+        user_input = input("➡️ ").strip()
+
+        if user_input.lower() == "exit":
+            print("Exiting the chat. Goodbye!")
+            break
+
+        conversation.add_message(Message(Role.USER, user_input))
+
+        print("🤖: ", end="")
+        if stream:
+            ai_message = await client.stream_response(conversation.get_messages())
+        else:
+            ai_message = client.response(conversation.get_messages())
+
+        conversation.add_message(ai_message)

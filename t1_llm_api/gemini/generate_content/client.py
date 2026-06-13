@@ -10,31 +10,51 @@ class GeminiGenerateContentAIClient(BaseGeminiClient):
 
     def __init__(self, base_url: str, model_name: str, api_key: str, system_prompt: str):
         super().__init__(base_url, model_name, api_key, system_prompt)
-        #TODO:
-        # https://ai.google.dev/api/generate-content
-        # - create the google-genai SDK client on self._client, pointing it at base_url via
-        #   types.HttpOptions: genai.Client(api_key=api_key, http_options=types.HttpOptions(base_url=base_url))
+        self._client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(base_url=base_url),
+        )
 
     def _to_gemini_contents(self, messages: list[Message]) -> list[types.Content]:
-        #TODO:
-        # - map each Message to a types.Content with role=self._to_gemini_role(msg.role)
-        #   (assistant -> "model") and parts=[types.Part(text=msg.content)]
-        # - return the list of contents
-        raise NotImplementedError()
+        contents = []
+        for msg in messages:
+            contents.append(
+                types.Content(
+                    role=self._to_gemini_role(msg.role),
+                    parts=[types.Part(text=msg.content)]
+                )
+            )
+        return contents
 
     def response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - call self._client.models.generate_content with model, contents=self._to_gemini_contents(messages),
-        #   and config=types.GenerateContentConfig(system_instruction=self._system_prompt,
-        #   max_output_tokens=kwargs.get("max_tokens", 1024))
-        # - read response.text, print it
-        # - return Message(Role.ASSISTANT, content)
-        raise NotImplementedError()
+        print(messages)
+        response = self._client.models.generate_content(
+            model=self._model_name,
+            contents=self._to_gemini_contents(messages),
+            config=types.GenerateContentConfig(
+                system_instruction=self._system_prompt,
+                max_output_tokens=kwargs.get("max_tokens", 1024),
+            ),
+        )
+
+        content = response.text
+        print(content)
+        return Message(role=Role.ASSISTANT, content=content)
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
-        #TODO:
-        # - await self._client.aio.models.generate_content_stream(...) (same model/contents/config)
-        #   and async-iterate the result
-        # - when chunk.text is truthy, print it (end='') and accumulate it
-        # - print() a newline, return Message(Role.ASSISTANT, joined content)
-        raise NotImplementedError()
+        content = []
+
+        async for chunk in await self._client.aio.models.generate_content_stream(
+                model=self._model_name,
+                contents=self._to_gemini_contents(messages),
+                config=types.GenerateContentConfig(
+                    system_instruction=self._system_prompt,
+                    max_output_tokens=kwargs.get("max_tokens", 1024),
+                ),
+        ):
+            if chunk.text:
+                content.append(chunk.text)
+                print(chunk.text, end='')
+
+        print()
+        return Message(role=Role.ASSISTANT, content="".join(content))
