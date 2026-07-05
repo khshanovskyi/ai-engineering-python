@@ -45,5 +45,4 @@ run(
     print_request=True, # Switch to False if you do not want to see the request in console
     print_only_content=False, # Switch to True if you want to see only content from response
 
-    max_output_tokens=16
 )
