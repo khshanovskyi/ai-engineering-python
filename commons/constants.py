@@ -37,6 +37,7 @@ ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5"
 # "/v1beta/models/{model}:streamGenerateContent" or "/v1beta/interactions".
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com"
 GEMINI_ENDPOINT = f"{GEMINI_BASE_URL}/v1beta/models"
+GEMINI_INTERACTIONS_ENDPOINT = f"{GEMINI_BASE_URL}/v1beta/interactions"
 GEMINI_API_REVISION = "2026-05-20"
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_3_FLASH='gemini-3-flash-preview'

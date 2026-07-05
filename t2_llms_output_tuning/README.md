@@ -36,9 +36,19 @@ Open [anthropic_task.py](anthropic_task.py) and follow TODO 1–6:
 Parameters are passed as kwargs to `run()`.
 
 ### 4. Gemini (Optional)
-Open [gemini_task.py](gemini_task.py) and follow TODO 1–6:
+Gemini exposes two API surfaces — try either.
+
+**Generate Content API** — open [gemini_generate_content_task.py](gemini_generate_content_task.py):
 - `temperature`, `topP`, `topK`, `maxOutputTokens`
 - `responseMimeType` + `responseSchema` (structured output)
 - `thinkingConfig` (extended thinking with budget)
 
-All parameters must be passed inside `generationConfig={...}`.
+All parameters must be passed inside `generationConfig={...}` (camelCase).
+
+**Interactions API** — open [gemini_interactions_task.py](gemini_interactions_task.py):
+- `temperature`, `top_p`, `max_output_tokens`, `stop_sequences`, `seed`
+- `thinking_level` (`minimal`/`low`/`medium`/`high`), `thinking_summaries` (`auto`/`none`)
+
+All parameters must be passed inside `generation_config={...}` (snake_case). The Interactions API posts
+to `/v1beta/interactions` and takes typed `input` *steps* (`user_input`/`model_output`) instead of a flat
+`contents`/`messages` list. See https://ai.google.dev/api/interactions-api-v1.
